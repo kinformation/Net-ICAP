@@ -1,0 +1,5 @@
+OPTIONS icap://icap.server.net/sample-service ICAP/1.0
+Host: icap.server.net
+User-Agent: BazookaDotCom-ICAP-Client-Library/2.3
+Encapsulated: null-body=0
+
