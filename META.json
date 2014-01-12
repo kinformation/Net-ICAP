@@ -35,10 +35,12 @@
          "recommends" : {},
          "requires" : {
             "Class::EHierarchy" : "0.93",
-            "Paranoid" : "0.36"
+            "HTTP::Date" : "0",
+            "Paranoid" : "0.36",
+            "URI" : "0"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "0.01"
+   "version" : "0.03"
 }

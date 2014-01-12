@@ -4,6 +4,8 @@ use 5.008003;
 %reqMods = (
     'Class::EHierarchy' => 0.93,
     'Paranoid'          => 0.36,
+    'URI'               => 0,
+    'HTTP::Date'        => 0,
     );
 %optMods = ();
 %testMods = ( 'IO::File' => 0, );

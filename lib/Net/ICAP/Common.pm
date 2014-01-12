@@ -2,7 +2,7 @@
 #
 # (c) 2012, Arthur Corliss <corliss@digitalmages.com>
 #
-# $Id$
+# $Revision: 0.03 $
 #
 #    This software is licensed under the same terms as Perl, itself.
 #    Please see http://dev.perl.org/licenses/ for more information.
@@ -24,7 +24,7 @@ use warnings;
 use vars qw(@EXPORT @EXPORT_OK %EXPORT_TAGS @ISA $VERSION);
 use Exporter;
 
-($VERSION) = ( q$Revision: 0.01 $ =~ /(\d+(?:\.(\d+))+)/sm );
+($VERSION) = ( q$Revision: 0.03 $ =~ /(\d+(?:\.(\d+))+)/sm );
 
 @ISA = qw(Exporter);
 
@@ -38,7 +38,7 @@ my @resp  = qw(ICAP_CONTINUE ICAP_OK ICAP_NO_MOD_NEEDED ICAP_BAD_REQUEST
     ICAP_SERVICE_OVERLOADED ICAP_GATEWAY_TIMEOUT ICAP_VERSION_NOT_SUPPORTED);
 
 @EXPORT = qw(ICAP_VERSION ICAP_REQ_HDR ICAP_RES_HDR ICAP_REQ_BODY
-    ICAP_RES_BODY ICAP_OPT_BODY ICAP_NULL_BODY);
+    ICAP_RES_BODY ICAP_OPT_BODY ICAP_NULL_BODY ICAP_DEF_PORT);
 @EXPORT_OK = ( @EXPORT, @debug, @req, @resp );
 %EXPORT_TAGS = (
     all   => [@EXPORT_OK],
@@ -53,7 +53,8 @@ use constant ICAPDEBUG2 => 6;
 use constant ICAPDEBUG3 => 7;
 use constant ICAPDEBUG4 => 8;
 
-use constant ICAP_VERSION => 'ICAP/1.0';
+use constant ICAP_DEF_PORT => 1344;
+use constant ICAP_VERSION  => 'ICAP/1.0';
 
 use constant ICAP_REQ_HDR   => 'req-hdr';
 use constant ICAP_RES_HDR   => 'res-hdr';
@@ -78,6 +79,7 @@ use constant ICAP_AUTH_REQUIRED          => 407;
 use constant ICAP_REQUEST_TIMEOUT        => 408;
 use constant ICAP_LENGTH_REQUIRED        => 411;
 use constant ICAP_URI_TOO_LARGE          => 414;
+use constant ICAP_BAD_COMPOSTION         => 418;
 use constant ICAP_SERVER_ERROR           => 500;
 use constant ICAP_METHOD_NOT_IMPLEMENTED => 501;
 use constant ICAP_BAD_GATEWAY            => 502;
@@ -101,7 +103,7 @@ Net::ICAP::Common - Common ICAP Constants
 
 =head1 VERSION
 
-$Id$
+$Id: lib/Net/ICAP/Common.pm, v0.03 $
 
 =head1 SYNOPSIS
 
@@ -130,6 +132,12 @@ following sets of constants:
 
 The following constants are used (primarily) internally for all ICAP message
 types.
+
+=head3 ICAP_DEF_PORT
+
+  1344
+
+The default TCP port used by ICAP.
 
 =head3 ICAP_VERSION
 

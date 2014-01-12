@@ -2,7 +2,7 @@
 #
 # (c) 2012, Arthur Corliss <corliss@digitalmages.com>
 #
-# $Id$
+# $Revision: 0.03 $
 #
 #    This software is licensed under the same terms as Perl, itself.
 #    Please see http://dev.perl.org/licenses/ for more information.
@@ -27,7 +27,7 @@ use Net::ICAP::Common qw(:std :debug :resp);
 use Net::ICAP::Message;
 use Paranoid::Debug;
 
-($VERSION) = ( q$Revision: 0.01 $ =~ /(\d+(?:\.(\d+))+)/sm );
+($VERSION) = ( q$Revision: 0.03 $ =~ /(\d+(?:\.(\d+))+)/sm );
 
 @ISA = qw(Net::ICAP::Message Class::EHierarchy);
 
@@ -47,6 +47,7 @@ use Paranoid::Debug;
             408 => 'Request Time-out',
             411 => 'Length Required',
             414 => 'Request-URI Too Large',
+            418 => 'Bad Composition',
             500 => 'Internal Server Error',
             501 => 'Method Not Implemented',
             502 => 'Bad Gateway',
@@ -277,7 +278,7 @@ Net::ICAP::Response - ICAP Response Class
 
 =head1 VERSION
 
-$Id$
+$Id: lib/Net/ICAP/Response.pm, v0.03 $
 
 =head1 SYNOPSIS
 

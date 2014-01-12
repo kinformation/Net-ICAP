@@ -2,7 +2,7 @@
 #
 # (c) 2012, Arthur Corliss <corliss@digitalmages.com>
 #
-# $Id$
+# $Revision: 0.03 $
 #
 #    This software is licensed under the same terms as Perl, itself.
 #    Please see http://dev.perl.org/licenses/ for more information.
@@ -26,8 +26,9 @@ use Class::EHierarchy qw(:all);
 use Net::ICAP::Common qw(:std :debug :req);
 use Net::ICAP::Message;
 use Paranoid::Debug;
+use URI;
 
-($VERSION) = ( q$Revision: 0.01 $ =~ /(\d+(?:\.(\d+))+)/sm );
+($VERSION) = ( q$Revision: 0.03 $ =~ /(\d+(?:\.(\d+))+)/sm );
 
 @ISA = qw(Net::ICAP::Message Class::EHierarchy);
 
@@ -143,6 +144,88 @@ sub url ($;$) {
     return $rv;
 }
 
+sub authority ($) {
+
+    # Purpose:  Returns the authority section of the URL
+    # Returns:  String
+    # Usage:    $auth = $obj->authority;
+
+    my $obj = shift;
+    my $url = $obj->property('_url');
+    my ( $uri, $r, $rv );
+
+    pdebug( 'entering', ICAPDEBUG1 );
+    pIn();
+
+    if ( defined $url and length $url ) {
+        $uri = URI->new($url);
+        $rv  = $uri->authority;
+    }
+
+    $r = defined $rv ? $rv : 'undef';
+    pOut();
+    pdebug( "leaving w/rv: $r", ICAPDEBUG1 );
+
+    return $rv;
+}
+
+sub service ($) {
+
+    # Purpose:  Returns the service section of the URL
+    # Returns:  String
+    # Usage:    $auth = $obj->service;
+
+    my $obj = shift;
+    my $url = $obj->property('_url');
+    my ( $uri, $r, $rv );
+
+    pdebug( 'entering', ICAPDEBUG1 );
+    pIn();
+
+    if ( defined $url and length $url ) {
+        $uri = URI->new($url);
+        $rv  = $uri->path;
+    }
+
+    $r = defined $rv ? $rv : 'undef';
+    pOut();
+    pdebug( "leaving w/rv: $r", ICAPDEBUG1 );
+
+    return $rv;
+}
+
+sub query ($;$) {
+
+    # Purpose:  Returns the query section of the URL
+    # Returns:  String
+    # Usage:    $auth = $obj->query;
+    # Usage:    $auth = $obj->query($query_arg);
+
+    my $obj   = shift;
+    my $qname = shift;
+    my $url   = $obj->property('_url');
+    my ( $uri, %q, $r, $rv );
+
+    pdebug( 'entering', ICAPDEBUG1 );
+    pIn();
+
+    if ( defined $url and length $url ) {
+        $uri = URI->new($url);
+        $rv  = $uri->query;
+
+        if ( defined $qname and length $qname ) {
+            %q  = $uri->query_form;
+            $rv = $q{$qname};
+        }
+    }
+
+    $r = defined $rv ? $rv : 'undef';
+    pOut();
+    pdebug( "leaving w/rv: $r", ICAPDEBUG1 );
+
+    return $rv;
+}
+
 sub sanityCheck ($) {
 
     # Purpose:  Checks for required information
@@ -221,6 +304,8 @@ sub parse ($$) {
         }
     }
 
+    $rv = 0 unless defined $rv;
+
     pOut();
     pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
 
@@ -235,7 +320,14 @@ sub generate ($$) {
 
     my $obj = shift;
     my $out = shift;
-    my $rv;
+    my ( $url, $host, $rv );
+
+    # Generate Host header from URL
+    $url = $obj->url;
+    if ( defined $url ) {
+        ($host) = ( $url =~ m#^icap://([^:/]+)#smi );
+        $obj->header( 'Host', $host );
+    }
 
     if ( $obj->sanityCheck ) {
 
@@ -258,7 +350,7 @@ Net::ICAP::Request - ICAP Request Class
 
 =head1 VERSION
 
-$Id$
+$Id: lib/Net/ICAP/Request.pm, v0.03 $
 
 =head1 SYNOPSIS
 
@@ -270,6 +362,11 @@ $Id$
 
     $method = $msg->method;
     $url    = $msg->url;
+
+    $auth       = $msg->authority;
+    $service    = $msg->service;
+    $query      = $msg->query;
+    $query_arg  = $msg->query('lang');
 
     $msg = Net::ICAP::Request->new(
         method  => ICAP_REQMOD,
@@ -297,7 +394,8 @@ See L<Net::ICAP::Message> documentation.
 
 =head2 generate
 
-See L<Net::ICAP::Message> documentation.
+See L<Net::ICAP::Message> documentation.  This method will automatically
+update the B<Host> header field based on the URL.
 
 =head2 method
 
@@ -315,6 +413,29 @@ provision exists at this moment to accept custom methods.
 
 This method gets or sets the URL the request is going to.  No validation is
 done on the passed value.
+
+=head2 authority
+
+    $auth = $msg->authority;
+
+This returns the hostname/port section of the URL, assuming one was set and is
+parseable by L<URI>.
+
+=head2 service
+
+    $service = $msg->service;
+
+This returns the service (or path component of a URI) of the URL, assuming one
+was set and is parseable by L<URI>.
+
+=head2 query
+
+    $query = $msg->query;
+    $query_arg = $msg->query('lang');
+
+This returns either the entire query string or the value of the specified
+query argument as defined in the URL.  This uses B<query_form> of L<URI> which
+assumes query components use B<application/x-www-form-urlencoded> format.
 
 =head2 sanityCheck
 

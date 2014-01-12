@@ -2,7 +2,7 @@
 #
 # (c) 2012, Arthur Corliss <corliss@digitalmages.com>
 #
-# $Id$
+# $Revision: 0.03 $
 #
 #    This software is licensed under the same terms as Perl, itself.
 #    Please see http://dev.perl.org/licenses/ for more information.
@@ -25,8 +25,9 @@ use vars qw($VERSION @ISA @_properties @_methods);
 use Class::EHierarchy qw(:all);
 use Paranoid::Debug;
 use Net::ICAP::Common qw(:std :debug);
+use HTTP::Date;
 
-($VERSION) = ( q$Revision: 0.01 $ =~ /(\d+(?:\.(\d+))+)/sm );
+($VERSION) = ( q$Revision: 0.03 $ =~ /(\d+(?:\.(\d+))+)/sm );
 
 @ISA = qw(Class::EHierarchy);
 
@@ -341,6 +342,7 @@ sub _parseHeaders (@) {
 
         foreach $line (@lines) {
             ( $k, $v ) = ( $line =~ m/^(\S+):\s*(.*?)\s*$/sm );
+            last unless defined $k and defined $v;
             $headers{$k} = exists $headers{$k} ? "$headers{$k},$v" : $v;
         }
     }
@@ -706,8 +708,7 @@ sub _parseEncap ($$) {
         }
 
     } else {
-        $rv = 0;
-        $obj->error('no Encapsulated header found');
+        pdebug( 'no Encapsulated header found', ICAPDEBUG2 );
     }
 
     pOut();
@@ -821,10 +822,14 @@ sub generate ($$) {
     my $obj = shift;
     my $ref = shift;
     my $rv  = 1;
-    my ( $t, $tt, $l );
+    my ( $d, $t, $tt, $l );
 
     pdebug( "entering w/$ref", ICAPDEBUG1 );
     pIn();
+
+    # Update Date Header if missing
+    $d = $obj->header('Date');
+    $obj->header( 'Date', time2str(time) ) unless defined $d and length $d;
 
     # Print Start/Status line
     $t = $obj->property('_start') . "\r\n";
@@ -890,7 +895,7 @@ Net::ICAP::Message - Base class for requests & responses
 
 =head1 VERSION
 
-$Id$
+$Id: lib/Net/ICAP/Message.pm, v0.03 $
 
 =head1 SYNOPSIS
 
@@ -1017,6 +1022,8 @@ This method generates an ICAP message based on the internal state data.  It
 accepts a reference to write to, which can be either a scalar reference, a
 file handle, or an L<IO::Handle> object.  In the case of a scalar reference it
 does not erase any previous contents, it appends to it.
+
+This method automatically adds the B<Date> header if it isn't already present.
 
 =head3 reqhdr
 

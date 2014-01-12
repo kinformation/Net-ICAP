@@ -3,6 +3,7 @@ README
 INSTALL
 LICENSE
 MANIFEST
+CHANGELOG
 doc/rfc3507.txt
 doc/rfc3507-errata.txt
 doc/rfc2616.txt
@@ -10,7 +11,9 @@ lib/Net/ICAP/Common.pm
 lib/Net/ICAP/Message.pm
 lib/Net/ICAP/Request.pm
 lib/Net/ICAP/Response.pm
+lib/Net/ICAP/Server.pm
 lib/Net/ICAP.pm
+sample/cookie_monster.pl
 t/sample-icap/reqmod-error-request
 t/sample-icap/reqmod-error-response
 t/sample-icap/respmod-get-request

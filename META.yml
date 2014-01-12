@@ -21,5 +21,7 @@ no_index:
 recommends: {}
 requires:
   Class::EHierarchy: 0.93
+  HTTP::Date: 0
   Paranoid: 0.36
-version: 0.01
+  URI: 0
+version: 0.03

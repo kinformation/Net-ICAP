@@ -1,5 +1,6 @@
 RESPMOD icap://icap.example.org/satisf ICAP/1.0
 Host: icap.example.org
+Date: Wed, 08 Nov 2000 16:02:10 GMT
 Encapsulated: req-hdr=0, res-hdr=137, res-body=296
 
 GET /origin-resource HTTP/1.1
