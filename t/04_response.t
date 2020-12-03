@@ -1,24 +1,24 @@
 #!/usr/bin/perl -T
 # 04_response.t
 
-use Test::More tests => 47;
+use Test::More tests => 56;
 
 use strict;
 use warnings;
 use Net::ICAP::Response;
-use Net::ICAP::Common qw(:std :resp);;
+use Net::ICAP::Common qw(:std :resp);
 use IO::File;
 use Paranoid::Debug;
 
 my ( $msg, $file, $fh, $text, @errors, $n, $u, %headers );
 
 my @reqfiles = qw(t/sample-icap/options-request
-    t/sample-icap/reqmod-post-request
-    t/sample-icap/reqmod-error-request  t/sample-icap/respmod-get-request
+    t/sample-icap/reqmod-post-request t/sample-icap/reqmod-error-request
+    t/sample-icap/respmod-get-request t/sample-icap/respmod-trailer-request
     t/sample-icap/reqmod-get-request);
 my @respfiles = qw(t/sample-icap/options-response
-    t/sample-icap/reqmod-post-response
-    t/sample-icap/reqmod-error-response  t/sample-icap/respmod-get-response
+    t/sample-icap/reqmod-post-response t/sample-icap/reqmod-error-response
+    t/sample-icap/respmod-get-response t/sample-icap/respmod-trailer-response
     t/sample-icap/reqmod-get-response);
 
 sub wc_c {
@@ -58,11 +58,11 @@ foreach $file (@respfiles) {
     ok( !scalar grep /invalid header/sm,
         $msg->error, "Parse Response Error $file 1" );
     $n = sed_n_1p($file);
-    ($u) = ($n =~ /^\S+\s+(\d+)/sm);
+    ($u) = ( $n =~ /^\S+\s+(\d+)/sm );
     is( $msg->status, $u, "Parse Status $file 1" );
-    ($u) = ($n =~ /^\S+\s+\d+\s+(.+)\r\n$/sm);
+    ($u) = ( $n =~ /^\S+\s+\d+\s+(.+)\r\n$/sm );
     is( $msg->statusText, $u,         "Parse Status Text $file 1" );
-    is( $msg->version,        'ICAP/1.0', "Parse Version $file 1" );
+    is( $msg->version,    'ICAP/1.0', "Parse Version $file 1" );
     $text = '';
     ok( $msg->generate( \$text ), "Generate $file 1" );
     $n = wc_c($file);
@@ -73,7 +73,7 @@ foreach $file (@respfiles) {
 $msg = Net::ICAP::Response->new(
     status  => ICAP_OK,
     headers => {
-        ISTag  => 'asdkleijdas',
+        ISTag => 'asdkleijdas',
         Allow => '204',
         },
         );

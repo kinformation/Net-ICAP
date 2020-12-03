@@ -34,13 +34,13 @@
       "runtime" : {
          "recommends" : {},
          "requires" : {
-            "Class::EHierarchy" : "0.93",
+            "Class::EHierarchy" : "2",
             "HTTP::Date" : "0",
-            "Paranoid" : "0.36",
+            "Paranoid" : "2.05",
             "URI" : "0"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "0.03"
+   "version" : "0.04"
 }

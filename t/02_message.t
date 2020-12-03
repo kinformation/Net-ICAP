@@ -1,7 +1,7 @@
 #!/usr/bin/perl -T
 # 02_message.t
 
-use Test::More tests => 18;
+use Test::More tests => 26;
 
 use strict;
 use warnings;
@@ -67,10 +67,22 @@ $rv = $msg->reqhdr("GET / HTTP/1.1\r\nHost: localhost\r\n");
 ok( $rv, 'reqhdr write 1' );
 $rv = $msg->body( ICAP_REQ_BODY, 'hardy har har' );
 ok( $rv, 'body write 1' );
-$msg->header('Date', 'Date: Mon, 10 Jan 2000  09:55:21 GMT');
+$msg->header( 'Date', 'Date: Mon, 10 Jan 2000  09:55:21 GMT' );
 $rv = $msg->generate( \$out );
 ok( $rv, 'generate 1' );
 is( length $out, 196, 'generate 2' );
+ok( $msg->ieof(1), 'IEOF 1' );
+$out = '';
+$rv  = $msg->generate( \$out );
+ok( $rv, 'generate 3' );
+is( length $out, 202, 'generate 4' );
+is( $msg->ieof,  1,   'IEOF 2' );
+ok( $msg->ieof(0), 'IEOF 3' );
+is( $msg->ieof, 0, 'IEOF 4' );
+$out = '';
+$rv  = $msg->generate( \$out );
+ok( $rv, 'generate 5' );
+is( length $out, 196, 'generate 6' );
 
 # Test new message generation
 $msg = Net::ICAP::Message->new(

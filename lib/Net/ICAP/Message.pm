@@ -2,7 +2,7 @@
 #
 # (c) 2012, Arthur Corliss <corliss@digitalmages.com>
 #
-# $Revision: 0.03 $
+# $Revision: 0.04 $
 #
 #    This software is licensed under the same terms as Perl, itself.
 #    Please see http://dev.perl.org/licenses/ for more information.
@@ -27,7 +27,7 @@ use Paranoid::Debug;
 use Net::ICAP::Common qw(:std :debug);
 use HTTP::Date;
 
-($VERSION) = ( q$Revision: 0.03 $ =~ /(\d+(?:\.(\d+))+)/sm );
+($VERSION) = ( q$Revision: 0.04 $ =~ /(\d+(?:\.(\d+))+)/s );
 
 @ISA = qw(Class::EHierarchy);
 
@@ -35,7 +35,8 @@ use constant DEF_CHUNK => 1024;
 
 @_properties = (
     [ CEH_RESTR | CEH_ARRAY, '_errors' ],
-    [ CEH_RESTR | CEH_SCALAR, '_version', ICAP_VERSION ],
+    [ CEH_RESTR | CEH_SCALAR, '_time-out', 0 ],
+    [ CEH_RESTR | CEH_SCALAR, '_version',  ICAP_VERSION ],
     [ CEH_RESTR | CEH_SCALAR, '_start' ],
     [ CEH_RESTR | CEH_HASH,   '_headers' ],
     [ CEH_RESTR | CEH_SCALAR, '_req-hdr' ],
@@ -43,6 +44,8 @@ use constant DEF_CHUNK => 1024;
     [ CEH_RESTR | CEH_SCALAR, '_body' ],
     [ CEH_RESTR | CEH_SCALAR, '_body_type' ],
     [ CEH_RESTR | CEH_SCALAR, '_trailer' ],
+    [ CEH_RESTR | CEH_SCALAR, '_ieof',     0 ],
+    [ CEH_RESTR | CEH_CODE,   '_chunked_cref' ],
     );
 
 @_methods = (
@@ -73,7 +76,7 @@ sub _initialize ($;@) {
     my %args = @_;
     my $rv   = 1;
 
-    pdebug( "entering w/$obj and @{[ keys %args ]}", ICAPDEBUG1 );
+    pdebug( 'entering w/%s and %s', ICAPDEBUG1, $obj, keys %args );
     pIn();
 
     # Set internal state if args were passed
@@ -87,9 +90,19 @@ sub _initialize ($;@) {
             and exists $args{body_type}
             and exists $args{body};
     $rv = $obj->trailer( $args{trailer} ) if exists $args{trailer} and $rv;
+    $rv = $obj->set( '_chunked_cref', $args{chunked_handler} )
+        if $rv and exists $args{chunked_handler};
+
+    # Set sigalarm handler
+    if ( exists $args{'time-out'} ) {
+        $obj->set( '_time-out', $args{'time-out'} );
+        $SIG{ALRM} = sub {
+            die pdebug( 'connection timed out', ICAPDEBUG1 ), "\n";
+        };
+    }
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -121,9 +134,27 @@ sub error ($;$) {
         $obj->push( '_errors', $msg );
         pdebug( $msg, ICAPDEBUG1 );
     }
-    @rv = $obj->property('_errors');
+    @rv = $obj->get('_errors');
 
     return @rv;
+}
+
+sub ieof ($;$) {
+
+    # Purpose:  Gets/sets the ieof flag
+    # Returns:  Boolean
+    # Usage:    $rv = $obj->ieof;
+
+    my $obj = shift;
+    my ($val) = @_;
+    my $rv;
+
+    $rv =
+        scalar @_
+        ? $obj->set( '_ieof', $val )
+        : $obj->get('_ieof');
+
+    return $rv;
 }
 
 sub reqhdr ($;$) {
@@ -139,8 +170,8 @@ sub reqhdr ($;$) {
 
     $rv =
         scalar @_
-        ? $obj->property( '_req-hdr', $header )
-        : $obj->property('_req-hdr');
+        ? $obj->set( '_req-hdr', $header )
+        : $obj->get('_req-hdr');
 
     return $rv;
 }
@@ -158,8 +189,8 @@ sub reshdr ($;$) {
 
     $rv =
         scalar @_
-        ? $obj->property( '_res-hdr', $header )
-        : $obj->property('_res-hdr');
+        ? $obj->set( '_res-hdr', $header )
+        : $obj->get('_res-hdr');
 
     return $rv;
 }
@@ -177,8 +208,8 @@ sub trailer ($;$) {
 
     $rv =
         scalar @_
-        ? $obj->property( '_trailer', $trailer )
-        : $obj->property('_trailer');
+        ? $obj->set( '_trailer', $trailer )
+        : $obj->get('_trailer');
 
     return $rv;
 }
@@ -195,10 +226,10 @@ sub body ($;$$) {
     my $rv;
 
     if (@_) {
-        $rv = $obj->property( '_body_type', $type )
-            && $obj->property( '_body', $body );
+        $rv = $obj->set( '_body_type', $type )
+            && $obj->set( '_body', $body );
     } else {
-        $rv = [ $obj->property('_body_type'), $obj->property('_body') ];
+        $rv = [ $obj->get('_body_type'), $obj->get('_body') ];
     }
 
     return ref $rv eq 'ARRAY' ? @$rv : $rv;
@@ -213,31 +244,29 @@ sub version ($;$) {
 
     my $obj     = shift;
     my $version = shift;
-    my $v       = defined $version ? $version : 'undef';
-    my ( $r, $rv );
+    my $rv;
 
-    pdebug( "entering w/$v", ICAPDEBUG1 );
+    pdebug( 'entering w/%s', ICAPDEBUG1, $version );
     pIn();
 
     if ( defined $version ) {
 
         # Write mode
         if ( $version eq ICAP_VERSION ) {
-            $rv = $obj->property( '_version', $version );
+            $rv = $obj->set( '_version', $version );
         } else {
-            pdebug( "invalid version passed: $version", ICAPDEBUG1 );
+            pdebug( 'invalid version passed: %s', ICAPDEBUG1, $version );
             $rv = 0;
         }
 
     } else {
 
         # Read mode
-        $rv = $obj->property('_version');
+        $rv = $obj->get('_version');
     }
 
-    $r = defined $rv ? $rv : 'undef';
     pOut();
-    pdebug( "leaving w/rv: $r", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -252,31 +281,41 @@ sub _getLine ($$) {
 
     my $obj = shift;
     my $ref = shift;
-    my ( $line, @lines, $rv );
+    my $to  = $obj->get('_time-out');
+    my ( $line, @lines );
 
-    pdebug( "entering w/$ref", ICAPDEBUG4 );
+    pdebug( 'entering w/%s', ICAPDEBUG4, $ref );
     pIn();
 
-    if ( defined $ref ) {
-        if ( ref $ref eq 'SCALAR' ) {
-            ( $line, @lines ) = split /\r\n/sm, $$ref;
-            $$ref = join "\r\n", @lines;
-            $line .= "\r\n";
-        } elsif ( ref $ref eq 'GLOB' ) {
-            $line = <$ref>;
-        } elsif ( $ref->isa('IO::Handle') ) {
-            $line = $ref->getline;
+    eval {
+        alarm $to if $to;
+
+        if ( defined $ref ) {
+            if ( ref $ref eq 'SCALAR' ) {
+                ( $line, @lines ) = split /\r\n/s, $$ref;
+                $$ref = join "\r\n", @lines;
+                $line .= "\r\n";
+            } elsif ( ref $ref eq 'GLOB' ) {
+                $line = <$ref>;
+            } elsif ( $ref->isa('IO::Handle') ) {
+                $line = $ref->getline;
+            } else {
+                $obj->error("don't know what to do with ref $ref");
+            }
         } else {
-            $obj->error("don't know what to do with ref $ref");
+            $obj->error('undefined value passed for reference');
         }
-    } else {
-        $obj->error('undefined value passed for reference');
+
+        alarm 0 if $to;
+    };
+
+    if ( $@ and $@ =~ /connection timed out/s ) {
+        $obj->error('connection timed out');
+        $line = undef;
     }
 
-    $rv = defined $line ? $line : 'undef';
-
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG4 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG4, $line );
 
     return $line;
 }
@@ -294,7 +333,7 @@ sub _putLine ($$@) {
     my @lines = splice @_;
     my $rv    = 0;
 
-    pdebug( "entering w/$ref, @{[ scalar @lines ]} line(s)", ICAPDEBUG4 );
+    pdebug( 'entering w/%s, %s line(s)', ICAPDEBUG4, $ref, scalar @lines );
     pIn();
 
     if ( defined $ref ) {
@@ -314,7 +353,7 @@ sub _putLine ($$@) {
     }
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG4 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG4, $rv );
 
     return $rv;
 }
@@ -328,27 +367,27 @@ sub _parseHeaders (@) {
     my @lines = splice @_;
     my ( $text, $line, $k, $v, %headers );
 
-    pdebug( "entering w/@{[ scalar @lines ]} line(s) of text", ICAPDEBUG3 );
+    pdebug( 'entering w/%s line(s) of text', ICAPDEBUG3, scalar @lines );
     pIn();
 
     if ( scalar @lines ) {
         $text = join "\r\n", @lines;
 
         # Fold header continuation lines
-        $text =~ s/\r\n\s+/ /smg;
+        $text =~ s/\r\n\s+/ /sg;
 
         # Get new set of lines, each one a different header
-        @lines = split /\r\n/sm, $text;
+        @lines = split /\r\n/s, $text;
 
         foreach $line (@lines) {
-            ( $k, $v ) = ( $line =~ m/^(\S+):\s*(.*?)\s*$/sm );
+            ( $k, $v ) = ( $line =~ m/^(\S+):\s*(.*?)\s*$/s );
             last unless defined $k and defined $v;
             $headers{$k} = exists $headers{$k} ? "$headers{$k},$v" : $v;
         }
     }
 
     pOut();
-    pdebug( "leaving w/@{[ scalar keys %headers ]} headers", ICAPDEBUG3 );
+    pdebug( 'leaving w/%s headers', ICAPDEBUG3, scalar keys %headers );
 
     return %headers;
 }
@@ -392,10 +431,10 @@ sub setHeaders ($@) {
 
     # Validate headers
     foreach $k ( keys %headers ) {
-        if ( $k =~ /^X-\w+[\w-]*/sm or grep { $_ eq $k } @valid ) {
+        if ( $k =~ /^X-\w+[\w-]*/s or grep { $_ eq $k } @valid ) {
 
             # Chomp header value
-            $headers{$k} =~ s/\r\n$//sm;
+            $headers{$k} =~ s/\r\n$//s;
 
         } else {
 
@@ -406,11 +445,11 @@ sub setHeaders ($@) {
     }
 
     # Store anything left
-    $obj->property( '_headers', %headers )
+    $obj->set( '_headers', %headers )
         if scalar keys %headers;
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG2 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG2, $rv );
 
     return $rv;
 }
@@ -422,7 +461,7 @@ sub getHeaders ($) {
     # Usage:    %headers = $obj->getHeaders;
 
     my $obj = shift;
-    return $obj->property('_headers');
+    return $obj->get('_headers');
 }
 
 sub header ($$;$) {
@@ -436,12 +475,12 @@ sub header ($$;$) {
     my $header = shift;
     my $v      = @_ ? $_[0] : '(omitted)';
     my @valid  = $obj->_validHeaders;
-    my ( $value, $rv, $r );
+    my ( $value, $rv );
 
-    pdebug( "entering w/$obj, $header, $v", ICAPDEBUG1 );
+    pdebug( 'entering w/%s, %s, %s', ICAPDEBUG1, $obj, $header, $v );
     pIn();
 
-    if ( $header =~ /^X-\w+[\w-]*/sm or grep { $_ eq $header } @valid ) {
+    if ( $header =~ /^X-\w+[\w-]*/s or grep { $_ eq $header } @valid ) {
 
         # Valid header requested
         if (@_) {
@@ -451,7 +490,7 @@ sub header ($$;$) {
             if ( defined $value ) {
 
                 # Set mode
-                $obj->store( '_headers', $header, $value );
+                $obj->merge( '_headers', $header, $value );
                 $rv = 1;
 
             } else {
@@ -464,15 +503,14 @@ sub header ($$;$) {
         } else {
 
             # Read mode
-            $rv = $obj->retrieve( '_headers', $header );
+            ($rv) = $obj->subset( '_headers', $header );
         }
     } else {
         $obj->error("invalid header requested: $header");
     }
 
-    $r = defined $rv ? $rv : 'undef';
     pOut();
-    pdebug( "leaving w/rv: $r", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -485,17 +523,19 @@ sub _readChunked ($$) {
 
     my $obj   = shift;
     my $input = shift;
+    my $cref  = $obj->get('_chunked_cref');
     my $text  = '';
-    my ( $line, $chunk, $c );
+    my ( $line, $chunk, $c, $ieof );
 
-    pdebug( "entering w/$obj, $input", ICAPDEBUG2 );
+    pdebug( 'entering w/%s, %s', ICAPDEBUG2, $obj, $input );
     pIn();
 
     if ( defined( $line = $obj->_getLine($input) ) ) {
 
         # Get initial chunk size
-        ($c) = ( $line =~ /^([0-9a-fA-F]+)\r\n$/sm );
+        ($c) = ( $line =~ /^([0-9a-fA-F]+)\r\n$/s );
         $c = hex $c;
+        $text = '' if defined $cref;
 
         OUTER: while ($c) {
 
@@ -513,19 +553,22 @@ sub _readChunked ($$) {
             }
 
             # Trim line separator appended to chunk
-            $chunk =~ s/\r\n$//sm;
+            $chunk =~ s/\r\n$//s;
 
             # Check for chunk size accuracy
             if ( length $chunk == $c ) {
 
                 # Save chunk
                 $text .= $chunk;
+                &$cref( $obj, $text ) if defined $cref;
 
                 # Get next chunk size
                 $line = $obj->_getLine($input);
                 if ( defined $line ) {
-                    ($c) = ( $line =~ /^([0-9a-fA-F]+)\r\n$/sm );
+                    ( $c, $ieof ) =
+                        ( $line =~ /^([0-9a-fA-F]+)(; ieof)?\r\n$/s );
                     $c = hex $c;
+                    $obj->ieof(1) if defined $ieof;
                 } else {
                     $c = 0;
                     $obj->error('missing next chunk header');
@@ -540,7 +583,7 @@ sub _readChunked ($$) {
     }
 
     pOut();
-    pdebug( "leaving w/@{[ length $text ]} characters of text", ICAPDEBUG2 );
+    pdebug( 'leaving w/%s bytes of text', ICAPDEBUG2, length $text );
 
     return $text;
 }
@@ -552,17 +595,29 @@ sub _writeChunked ($) {
     # Usage:    $chunked = $obj->_writeChunked;
 
     my $obj  = shift;
-    my $body = $obj->property('_body');
-    my ( @segments, $r, $rv );
+    my $body = $obj->get('_body');
+    my $cref = $obj->get('_chunked_cref');
+    my $rv   = '';
+    my ( @segments, $r );
 
     pdebug( 'entering', ICAPDEBUG2 );
     pIn();
 
-    if ( defined $body ) {
+    if ( defined $cref ) {
+        $body = &$cref($obj);
+        if ( defined $body and length $body ) {
+            while ( defined $body and length $body ) {
+                $rv .= sprintf "%x\r\n%s\r\n", length $_, $body;
+                $body = &$cref($obj);
+            }
+            $rv .= "0\r\n";
+        } elsif ( defined $body ) {
+            $rv .= "0\r\n";
+        }
+    } elsif ( defined $body ) {
         while ( defined $body and length $body ) {
             push @segments, substr $body, 0, DEF_CHUNK, '';
         }
-        $rv = '';
         foreach (@segments) {
             $rv .= sprintf "%x\r\n", length $_;
 
@@ -571,12 +626,12 @@ sub _writeChunked ($) {
             # past with binary data...
             $rv .= "$_\r\n";
         }
-        $rv .= "0\r\n";
+        $rv .= $obj->ieof ? "0; ieof\r\n" : "0\r\n";
     }
 
     $r = defined $rv ? "@{[ length $rv ]} characters" : 'undef';
     pOut();
-    pdebug( "leaving w/rv: $r", ICAPDEBUG2 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG2, $r );
 
     return $rv;
 }
@@ -598,30 +653,30 @@ sub _parseEncap ($$) {
 
     $encap = $obj->header('Encapsulated');
     if ( defined $encap ) {
-        @entities = split /\s*,\s*/sm, $encap;
+        @entities = split /\s*,\s*/s, $encap;
 
         # Sanity tests:
         #
         #   1) there must be one (and only one) *-body tag as last entity
-        $n = scalar grep /^\w+-body=\d+$/sm, @entities;
+        $n = scalar grep /^\w+-body=\d+$/s, @entities;
         unless ( $n == 1 ) {
             $rv = 0;
             $obj->error(
                 "invalid number of body entities in Encapsulated: $encap");
         }
-        unless ( $entities[$#entities] =~ /^\w+-body=\d+$/sm ) {
+        unless ( $entities[$#entities] =~ /^\w+-body=\d+$/s ) {
             $rv = 0;
             $obj->error( 'last entity must be a body entities in '
                     . "Encapsulated: $encap" );
         }
 
         #   2) only one req-hdr and/or resp-hdr allowed, but are optional
-        $n = scalar grep /^req-hdr=\d+$/sm, @entities;
+        $n = scalar grep /^req-hdr=\d+$/s, @entities;
         unless ( $n <= 1 ) {
             $rv = 0;
             $obj->error("too many req-hedr entities in Encapsulated: $encap");
         }
-        $n = scalar grep /^res-hdr=\d+$/sm, @entities;
+        $n = scalar grep /^res-hdr=\d+$/s, @entities;
         unless ( $n <= 1 ) {
             $rv = 0;
             $obj->error("too many res-hedr entities in Encapsulated: $encap");
@@ -629,7 +684,7 @@ sub _parseEncap ($$) {
 
         #   3) offsets are monotonically increasing
         $n = undef;
-        foreach ( map {m/=(\d+)$/sm} @entities ) {
+        foreach ( map {m/=(\d+)$/s} @entities ) {
             unless ( !defined $n or $_ > $n ) {
                 $rv = 0;
                 $obj->error( 'Encapsulated offsets aren\'t monotonically '
@@ -648,7 +703,7 @@ sub _parseEncap ($$) {
         }
 
         #   4) no unknown entity types
-        if ( scalar grep !m/^(?:re[qs]-hdr|(?:opt|null|re[qs])-body)=\d+$/sm,
+        if ( scalar grep !m/^(?:re[qs]-hdr|(?:opt|null|re[qs])-body)=\d+$/s,
             @entities ) {
             $rv = 0;
             $obj->error("invalid entities in Encapsulated: $encap");
@@ -658,10 +713,10 @@ sub _parseEncap ($$) {
         if ($rv) {
             $offset = 0;
             while (@entities) {
-                ( $t, $l ) = split /=/sm, shift @entities;
+                ( $t, $l ) = split /=/s, shift @entities;
                 ( $line, $text ) = ( '', '' );
 
-                if ( $t =~ /-hdr$/sm ) {
+                if ( $t =~ /-hdr$/s ) {
 
                     # Read headers
                     while ( defined( $line = $obj->_getLine($input) ) ) {
@@ -670,19 +725,19 @@ sub _parseEncap ($$) {
                     }
 
                     # Store the headers
-                    $obj->property( "_$t", $text );
+                    $obj->set( "_$t", $text );
 
-                } elsif ( $t =~ /-body$/sm ) {
+                } elsif ( $t =~ /-body$/s ) {
                     unless ( $t eq 'null-body' ) {
                         $text = $obj->_readChunked($input);
-                        $obj->property( '_body',      $text );
-                        $obj->property( '_body_type', $t );
+                        $obj->set( '_body',      $text );
+                        $obj->set( '_body_type', $t );
                     }
                 }
 
                 # Check the intermediate length
                 if (@entities) {
-                    ($offset) = ( $entities[0] =~ /=(\d+)$/sm );
+                    ($offset) = ( $entities[0] =~ /=(\d+)$/s );
                     $l = $l == 0 ? $offset - 2 : $offset - $l - 2;
                     unless ( length $text == $l ) {
                         $rv = 0;
@@ -695,7 +750,7 @@ sub _parseEncap ($$) {
         }
 
         # Check for trailers for all message bodies
-        if ( grep /\b(?:res|req|opt)-body=/sm, $encap ) {
+        if ( grep /\b(?:res|req|opt)-body=/s, $encap ) {
             $line = $obj->_getLine($input);
             if ( defined $line and $line ne "\r\n" ) {
                 $text = $line;
@@ -703,7 +758,7 @@ sub _parseEncap ($$) {
                     last if $line eq "\r\n";
                     $text .= $line;
                 }
-                $obj->property( '_trailer', $text );
+                $obj->set( '_trailer', $text );
             }
         }
 
@@ -712,7 +767,7 @@ sub _parseEncap ($$) {
     }
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG2 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG2, $rv );
 
     return $rv;
 }
@@ -736,7 +791,7 @@ sub _genEncap ($) {
     $t = $obj->reqhdr;
     if ( defined $t and length $t ) {
         $encap  = "req-hdr=$offset";
-        $offset = length($t) + 2;
+        $offset += length($t) + 2;
     }
 
     # Check for res-hdr
@@ -744,7 +799,7 @@ sub _genEncap ($) {
     if ( defined $t and length $t ) {
         $encap .= ', ' if length $encap;
         $encap .= "res-hdr=$offset";
-        $offset = length($t) + 2;
+        $offset += length($t) + 2;
     }
 
     # Check for body
@@ -758,7 +813,7 @@ sub _genEncap ($) {
     }
 
     pOut();
-    pdebug( "leaving w/rv: $encap", ICAPDEBUG2 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG2, $encap );
 
     return $encap;
 }
@@ -774,17 +829,18 @@ sub parse ($$) {
     my ( $start, @headers, $line, $icap_msg );
     my $rv = 0;
 
-    pdebug( "entering w/$obj, $input", ICAPDEBUG1 );
+    pdebug( 'entering w/%s, %s', ICAPDEBUG1, $obj, $input );
     pIn();
 
     # Purge internal state
-    $obj->purge('_errors');
-    $obj->purge('_headers');
-    $obj->property( '_start',   undef );
-    $obj->property( '_req-hdr', undef );
-    $obj->property( '_res-hdr', undef );
-    $obj->property( '_body',    undef );
-    $obj->property( '_trailer', undef );
+    $obj->empty('_errors');
+    $obj->empty('_headers');
+    $obj->set( '_start',   undef );
+    $obj->set( '_req-hdr', undef );
+    $obj->set( '_res-hdr', undef );
+    $obj->set( '_body',    undef );
+    $obj->set( '_trailer', undef );
+    $obj->set( '_ieof',    0 );
 
     # Read the transaction
     while ( defined( $line = $obj->_getLine($input) ) ) {
@@ -796,19 +852,19 @@ sub parse ($$) {
     if ( length $icap_msg ) {
 
         # Strip any trailing line terminations
-        $icap_msg =~ s/\r\n$//sm;
+        $icap_msg =~ s/\r\n$//s;
 
         # Separate start line from headers
-        ( $start, @headers ) = split /\r\n/sm, $icap_msg;
+        ( $start, @headers ) = split /\r\n/s, $icap_msg;
 
         # Store the start line, headers, and parse Encap data
-        $obj->property( '_start', $start );
+        $obj->set( '_start', $start );
         $rv = $obj->setHeaders( _parseHeaders(@headers) )
             && $obj->_parseEncap($input);
     }
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -824,29 +880,30 @@ sub generate ($$) {
     my $rv  = 1;
     my ( $d, $t, $tt, $l );
 
-    pdebug( "entering w/$ref", ICAPDEBUG1 );
+    pdebug( 'entering w/%s', ICAPDEBUG1, $ref );
     pIn();
 
     # Update Date Header if missing
     $d = $obj->header('Date');
-    $obj->header( 'Date', time2str(time) ) unless defined $d and length $d;
+    $obj->header( 'Date', time2str(time) )
+        unless defined $d and length $d;
 
     # Print Start/Status line
-    $t = $obj->property('_start') . "\r\n";
+    $t = $obj->get('_start') . "\r\n";
     $rv = defined $t and length $t ? $obj->_putLine( $ref, $t ) : 0;
 
     # Print ICAP headers
     if ($rv) {
-        $obj->store( qw(_headers Encapsulated), $obj->_genEncap );
+        $obj->merge( qw(_headers Encapsulated), $obj->_genEncap );
         $l = $t = $obj->_genHeaders . "\r\n";
         $rv = defined $t and length $t ? $obj->_putLine( $ref, $t ) : 0;
     }
 
     # Print req-hdr
     if ($rv) {
-        $t = $obj->property('_req-hdr');
+        $t = $obj->get('_req-hdr');
         if ( defined $t and length $t ) {
-            while ( $t !~ /\r\n\r\n$/sm ) { $t .= "\r\n" }
+            while ( $t !~ /\r\n\r\n$/s ) { $t .= "\r\n" }
             $l = $t;
             $rv = $obj->_putLine( $ref, $t );
         }
@@ -854,9 +911,9 @@ sub generate ($$) {
 
     # Print res-hdr
     if ($rv) {
-        $t = $obj->property('_res-hdr');
+        $t = $obj->get('_res-hdr');
         if ( defined $t and length $t ) {
-            while ( $t !~ /\r\n\r\n$/sm ) { $t .= "\r\n" }
+            while ( $t !~ /\r\n\r\n$/s ) { $t .= "\r\n" }
             $l = $t;
             $rv = $obj->_putLine( $ref, $t );
         }
@@ -871,16 +928,25 @@ sub generate ($$) {
         }
     }
 
+    # Print trailer
+    if ($rv) {
+        $t = $obj->trailer;
+        if ( defined $t and length $t ) {
+            $l = $t;
+            $rv = $obj->_putLine( $ref, $t );
+        }
+    }
+
     # Print end of message termination
     if ($rv) {
-        while ( $l !~ /\r\n\r\n/sm ) {
+        while ( $l !~ /\r\n\r\n/s ) {
             $l .= "\r\n";
             $rv = $obj->_putLine( $ref, "\r\n" );
         }
     }
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -895,7 +961,7 @@ Net::ICAP::Message - Base class for requests & responses
 
 =head1 VERSION
 
-$Id: lib/Net/ICAP/Message.pm, v0.03 $
+$Id: lib/Net/ICAP/Message.pm, 0.04 2017/04/12 15:54:19 acorliss Exp $
 
 =head1 SYNOPSIS
 
@@ -910,7 +976,9 @@ $Id: lib/Net/ICAP/Message.pm, v0.03 $
     $reqheader  = $obj->reqhdr;
     $resheader  = $obj->reshdr;
     ($type, $body) = $obj->body;
+    $trailer    = $obj->trailer;
     $version    = $obj->version;
+    $ieof       = $obj->ieof;
 
     $msg = Net::ICAP::Message->new(
         headers => {
@@ -923,8 +991,10 @@ $Id: lib/Net/ICAP/Message.pm, v0.03 $
     $rv = $obj->setHeaders(%headers);
     $rv = $obj->reqhdr($text);
     $rv = $obj->reshdr($text);
-    $rv = $obj->reshdr($text);
+    $rv = $obj->body($type, $text);
+    $rv = $obj->trailer($text);
     $rv = $obj->version($version);
+    $rv = $obj->ieof($bool);
 
     $rv     = $msg->generate($fh);
     @errors = $obj->error;
@@ -1054,6 +1124,14 @@ HTTP trailer, rather than in the actual header block itself.
 
 This method gets or sets the ICAP protocol version string.  It does perform
 validation of the string and will ignore any unknown strings.
+
+=head3 ieof
+
+    $rv     = $obj->ieof($val);
+    $ieof   = $obj->ieof;
+
+This sets or detects whether an ieof marker should be (or was) sent during
+chunked (de|en)coding.
 
 =head2 RESTRICTED METHODS
 

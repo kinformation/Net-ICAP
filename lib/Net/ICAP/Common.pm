@@ -2,7 +2,7 @@
 #
 # (c) 2012, Arthur Corliss <corliss@digitalmages.com>
 #
-# $Revision: 0.03 $
+# $Revision: 0.04 $
 #
 #    This software is licensed under the same terms as Perl, itself.
 #    Please see http://dev.perl.org/licenses/ for more information.
@@ -24,7 +24,7 @@ use warnings;
 use vars qw(@EXPORT @EXPORT_OK %EXPORT_TAGS @ISA $VERSION);
 use Exporter;
 
-($VERSION) = ( q$Revision: 0.03 $ =~ /(\d+(?:\.(\d+))+)/sm );
+($VERSION) = ( q$Revision: 0.04 $ =~ /(\d+(?:\.(\d+))+)/s );
 
 @ISA = qw(Exporter);
 
@@ -103,7 +103,7 @@ Net::ICAP::Common - Common ICAP Constants
 
 =head1 VERSION
 
-$Id: lib/Net/ICAP/Common.pm, v0.03 $
+$Id: lib/Net/ICAP/Common.pm, 0.04 2017/04/12 15:54:19 acorliss Exp $
 
 =head1 SYNOPSIS
 

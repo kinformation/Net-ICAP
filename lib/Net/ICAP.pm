@@ -2,7 +2,7 @@
 #
 # (c) 2014, Arthur Corliss <corliss@digitalmages.com>
 #
-# $Revision: 0.03 $
+# $Revision: 0.04 $
 #
 #    This software is licensed under the same terms as Perl, itself.
 #    Please see http://dev.perl.org/licenses/ for more information.
@@ -23,7 +23,7 @@ use strict;
 use warnings;
 use vars qw($VERSION);
 
-($VERSION) = (q$Revision: 0.03 $ =~ /(\d+(?:\.(\d+))+)/sm);
+($VERSION) = (q$Revision: 0.04 $ =~ /(\d+(?:\.(\d+))+)/s);
 
 use Net::ICAP::Request;
 use Net::ICAP::Response;
@@ -44,7 +44,7 @@ Net::ICAP - Internet Content Adapataion Protocol (rfc3507)
 
 =head1 VERSION
 
-$Id: lib/Net/ICAP.pm, v0.03 $
+$Id: lib/Net/ICAP.pm, 0.04 2017/04/12 15:54:19 acorliss Exp $
 
 =head1 SYNOPSIS
 

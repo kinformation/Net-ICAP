@@ -2,7 +2,7 @@
 #
 # (c) 2014, Arthur Corliss <corliss@digitalmages.com>
 #
-# $Id: lib/Net/ICAP/Server.pm, v0.03 $
+# $Id: lib/Net/ICAP/Server.pm, 0.04 2017/04/12 15:54:19 acorliss Exp $
 #
 #    This software is licensed under the same terms as Perl, itself.
 #    Please see http://dev.perl.org/licenses/ for more information.
@@ -23,9 +23,9 @@ use strict;
 use warnings;
 use vars qw($VERSION @ISA @_properties @_methods);
 
-($VERSION) = ( q$Revision: 0.03 $ =~ /(\d+(?:\.(\d+))+)/sm );
+($VERSION) = ( q$Revision: 0.04 $ =~ /(\d+(?:\.(\d+))+)/s );
 
-@ISA         = qw(Class::EHierarchy);
+@ISA = qw(Class::EHierarchy);
 
 use Socket;
 use IO::Socket::INET;
@@ -46,7 +46,6 @@ use Paranoid::Process qw(:all);
     [ CEH_RESTR | CEH_CODE,   '_reqmod' ],
     [ CEH_RESTR | CEH_CODE,   '_respmod' ],
     [ CEH_RESTR | CEH_CODE,   '_logger' ],
-    [ CEH_RESTR | CEH_CODE, '_istag', sub { return time } ],
     );
 @_methods = ();
 
@@ -60,34 +59,34 @@ sub _initialize {
     my $obj   = shift;
     my %args  = @_;
     my $rv    = 1;
-    my @props = $obj->propertyNames;
+    my @props = $obj->properties;
     my $a;
 
-    pdebug( "entering w/$obj and @{[ scalar keys %args ]}", ICAPDEBUG1 );
+    pdebug( 'entering w/%s and %s', ICAPDEBUG1, $obj, scalar keys %args );
     pIn();
 
     # Set internal state
     foreach $a ( keys %args ) {
         if ( grep { $_ eq "_$a" } @props ) {
             unless (
-                $obj->property(
+                $obj->set(
                     "_$a", $a eq 'services'
                     ? %{ $args{$a} }
                     : $args{$a} )
                 ) {
-                pdebug( "failed to set $a", ICAPDEBUG1 );
+                pdebug( 'failed to set %s', ICAPDEBUG1, $a );
                 $rv = 0;
                 last;
             }
         } else {
-            pdebug( "unknown argument: $a", ICAPDEBUG1 );
+            pdebug( 'unknown argument: %s', ICAPDEBUG1, $a );
             $rv = 0;
             last;
         }
     }
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -99,7 +98,7 @@ sub istag ($) {
     # Usage:    $code = $obj->istag;
 
     my $obj = shift;
-    return $obj->property('_istag');
+    return $obj->get('_istag');
 }
 
 sub _drain ($$) {
@@ -113,7 +112,7 @@ sub _drain ($$) {
     my $rv     = 1;
     my ( $line, $lastInput );
 
-    pdebug( "entering w/$client", ICAPDEBUG1 );
+    pdebug( 'entering w/%s', ICAPDEBUG1, $client );
     pIn();
 
     if ( defined $client ) {
@@ -128,7 +127,7 @@ sub _drain ($$) {
     }
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -141,10 +140,9 @@ sub _error ($;$) {
 
     my $obj    = shift;
     my $status = shift;
-    my $s      = defined $status ? $status : 'undef';
     my $resp;
 
-    pdebug( "entering w/$s", ICAPDEBUG1 );
+    pdebug( "entering w/%s", ICAPDEBUG1, $status );
     pIn();
 
     $status = ICAP_BAD_REQUEST unless defined $status;
@@ -157,7 +155,7 @@ sub _error ($;$) {
             );
 
     pOut();
-    pdebug( "leaving w/rv: $resp", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $resp );
 
     return $resp;
 }
@@ -174,13 +172,13 @@ sub _options ($$) {
         status  => ICAP_OK,
         headers => {
             ISTag             => &{ $obj->istag },
-            'Max-Connections' => $obj->property('_max_children'),
+            'Max-Connections' => $obj->get('_max_children'),
             Allow             => 204,
             },
             );
 
-    $response->header( 'Options-TTL', $obj->property('_options_ttl') )
-        if $obj->property('_options_ttl');
+    $response->header( 'Options-TTL', $obj->get('_options_ttl') )
+        if $obj->get('_options_ttl');
 
     return $response;
 }
@@ -194,14 +192,14 @@ sub _dispatch ($$$) {
     my $obj      = shift;
     my $client   = shift;
     my $request  = shift;
-    my $reqmod   = $obj->property('_reqmod');
-    my $respmod  = $obj->property('_respmod');
-    my $logger   = $obj->property('_logger');
-    my %services = $obj->property('_services');
+    my $reqmod   = $obj->get('_reqmod');
+    my $respmod  = $obj->get('_respmod');
+    my $logger   = $obj->get('_logger');
+    my %services = $obj->get('_services');
     my $rv       = 1;
     my ( $service, $method, $response, $r );
 
-    pdebug( "entering w/$client, $request", ICAPDEBUG1 );
+    pdebug( 'entering w/%s, %s', ICAPDEBUG1, $client, $request );
     pIn();
 
     $service = $request->service;
@@ -239,7 +237,7 @@ sub _dispatch ($$$) {
     $rv &= $r;
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -254,11 +252,11 @@ sub _process ($$) {
     my $client  = shift;
     my $rv      = 1;
     my $counter = 0;
-    my $max_r   = $obj->property('_max_requests');
-    my $logger  = $obj->property('_logger');
+    my $max_r   = $obj->get('_max_requests');
+    my $logger  = $obj->get('_logger');
     my ( $req, $resp, $c );
 
-    pdebug( "entering w/$client", ICAPDEBUG1 );
+    pdebug( 'entering w/%s', ICAPDEBUG1, $client );
     pIn();
 
     while ( $max_r == 0 or $counter < $max_r ) {
@@ -285,7 +283,7 @@ sub _process ($$) {
     }
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -297,9 +295,9 @@ sub run ($) {
     # Usage:    $rv = $obj->run;
 
     my $obj         = shift;
-    my $addr        = $obj->property('_addr');
-    my $port        = $obj->property('_port');
-    my $maxChildren = $obj->property('_max_children');
+    my $addr        = $obj->get('_addr');
+    my $port        = $obj->get('_port');
+    my $maxChildren = $obj->get('_max_children');
     my $queueSize   = $maxChildren * 2;
     my $rv          = 1;
     my ( $socket, $client, $cpid );
@@ -330,19 +328,19 @@ sub run ($) {
                     }
                 } else {
                     pdebug(
-                        "failed to fork child for incoming connection: $!",
-                        ICAPDEBUG1 );
+                        'failed to fork child for incoming connection: %s',
+                        ICAPDEBUG1, $! );
                     $rv = 0;
                 }
             }
         }
     } else {
         $rv = 0;
-        pdebug( "failed to open socket: $!", ICAPDEBUG1 );
+        pdebug( 'failed to open socket: %s', ICAPDEBUG1, $! );
     }
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -357,7 +355,7 @@ Net::ICAP::Server - ICAP Server Implementation
 
 =head1 VERSION
 
-$Id: lib/Net/ICAP/Server.pm, v0.03 $
+$Id: lib/Net/ICAP/Server.pm, 0.04 2017/04/12 15:54:19 acorliss Exp $
 
 =head1 SYNOPSIS
 

@@ -1,7 +1,7 @@
 #!/usr/bin/perl -T
 # 03_request.t
 
-use Test::More tests => 47;
+use Test::More tests => 56;
 
 use strict;
 use warnings;
@@ -13,12 +13,12 @@ use Paranoid::Debug;
 my ( $msg, $file, $fh, $text, @errors, $n, $u, %headers );
 
 my @reqfiles = qw(t/sample-icap/options-request
-    t/sample-icap/reqmod-post-request
-    t/sample-icap/reqmod-error-request  t/sample-icap/respmod-get-request
+    t/sample-icap/reqmod-post-request t/sample-icap/reqmod-error-request
+    t/sample-icap/respmod-get-request t/sample-icap/respmod-trailer-request
     t/sample-icap/reqmod-get-request);
 my @respfiles = qw(t/sample-icap/options-response
-    t/sample-icap/reqmod-post-response
-    t/sample-icap/reqmod-error-response  t/sample-icap/respmod-get-response
+    t/sample-icap/reqmod-post-response t/sample-icap/reqmod-error-response
+    t/sample-icap/respmod-get-response t/sample-icap/respmod-trailer-response
     t/sample-icap/reqmod-get-response);
 
 sub wc_c {

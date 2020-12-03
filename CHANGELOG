@@ -1,27 +1,30 @@
-commit f92d6eb89606dc42010102995c064f1774b29476
-Author: Arthur Corliss <corliss@digitalmages.com>
-Date:   Sat Jan 11 15:10:07 2014 -0900
+CHANGELOG
 
-    --Minor improvements to cookie_monster.pl sample server
-    --Minor fixes to comply with RFC Errata
-    --Added status code 418/description
-    --No longer produces parsing error for missing Encapsulated header
+v0.04 (2017/04/26)
+==================
+--Ported to new Class::EHierarchy API
+--Ported to new Paranoid API
+--Fixed encapsulation offset bug (andreas.a.lamprecht@atos.net)
+--Fixed mangling of binary date (mark-cpan@carnildo.com)
 
-commit ec520ecee9ded75eb20b25e3a939f9700fa26ee8
-Author: Arthur Corliss <corliss@digitalmages.com>
-Date:   Sat Jan 11 11:33:06 2014 -0900
+v0.03 (2014/01/11)
+==================
+--Minor improvements to cookie_monster.pl sample server
+--Minor fixes to comply with RFC Errata
+--Added status code 418/description
+--No longer produces parsing error for missing Encapsulated header
 
-    --Added new dependencies (URI & HTTP::Date)
-    --Added default port constant
-    --Added automatic Date header generation if it's missing
-    --Added URI parsing convenience functions for Request objects
-    --Added automatic Host header generation for Requests
-    --Added Server implementation
-    --Added sample script using the Server module
-    --Updated tests to account for Date headers and new modules
+v0.02 (2014/01/11)
+==================
+--Added new dependencies (URI & HTTP::Date)
+--Added default port constant
+--Added automatic Date header generation if it's missing
+--Added URI parsing convenience functions for Request objects
+--Added automatic Host header generation for Requests
+--Added Server implementation
+--Added sample script using the Server module
+--Updated tests to account for Date headers and new modules
 
-commit 72c23a850fe0f058212fe6a833a0a28b787c6244
-Author: Arthur Corliss <corliss@digitalmages.com>
-Date:   Thu Jan 9 10:38:22 2014 -0900
-
-    Initial revision
+v0.01 (2014/01/09)
+==================
+--Initial revision

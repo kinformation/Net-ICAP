@@ -2,7 +2,7 @@
 #
 # (c) 2012, Arthur Corliss <corliss@digitalmages.com>
 #
-# $Revision: 0.03 $
+# $Revision: 0.04 $
 #
 #    This software is licensed under the same terms as Perl, itself.
 #    Please see http://dev.perl.org/licenses/ for more information.
@@ -27,7 +27,7 @@ use Net::ICAP::Common qw(:std :debug :resp);
 use Net::ICAP::Message;
 use Paranoid::Debug;
 
-($VERSION) = ( q$Revision: 0.03 $ =~ /(\d+(?:\.(\d+))+)/sm );
+($VERSION) = ( q$Revision: 0.04 $ =~ /(\d+(?:\.(\d+))+)/s );
 
 @ISA = qw(Net::ICAP::Message Class::EHierarchy);
 
@@ -70,14 +70,14 @@ sub _initialize ($;@) {
     my %args = @_;
     my $rv   = 1;
 
-    pdebug( "entering w/$obj and @{[ keys %args]}", ICAPDEBUG1 );
+    pdebug( 'entering w/%s and %s', ICAPDEBUG1, $obj, keys %args );
     pIn();
 
     # Set internal state if args were passed
     $rv = $obj->status( $args{status} ) if exists $args{status};
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -107,17 +107,16 @@ sub status ($;$) {
 
     my $obj    = shift;
     my $status = shift;
-    my $s      = defined $status ? $status : 'undef';
-    my ( $r, $rv );
+    my $rv;
 
-    pdebug( "entering w/$s", ICAPDEBUG1 );
+    pdebug( 'entering w/%s', ICAPDEBUG1, $status );
     pIn();
 
     if ( defined $status ) {
 
         # Write mode
         if ( $obj->exists( '_status_text', $status ) ) {
-            $rv = $obj->property( '_status', $status );
+            $rv = $obj->set( '_status', $status );
         } else {
             $obj->error("invalid status code passed: $status");
             $rv = 0;
@@ -126,12 +125,11 @@ sub status ($;$) {
     } else {
 
         # Read mode
-        $rv = $obj->property('_status');
+        $rv = $obj->get('_status');
     }
 
-    $r = defined $rv ? $rv : 'undef';
     pOut();
-    pdebug( "leaving w/rv: $r", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -145,25 +143,22 @@ sub statusText ($;$) {
 
     my $obj    = shift;
     my $status = shift;
-    my $s      = defined $status ? $status : 'undef';
-    my ( $rv, $r );
+    my $rv;
 
-    pdebug( "entering w/$s", ICAPDEBUG1 );
+    pdebug( 'entering w/%s', ICAPDEBUG1, $status );
     pIn();
 
-    $status = $obj->property('_status') unless defined $status;
+    $status = $obj->get('_status') unless defined $status;
     if ( defined $status ) {
-        $s = $status;
-        $rv = $obj->retrieve( '_status_text', $status )
+        ($rv) = $obj->subset( '_status_text', $status )
             if $obj->exists( '_status_text', $status );
     }
 
-    $obj->error("invalid or undefined status: $s")
+    $obj->error("invalid or undefined status")
         unless defined $rv;
 
-    $r = defined $rv ? $rv : 'undef';
     pOut();
-    pdebug( "leaving w/rv: $r", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -178,13 +173,13 @@ sub sanityCheck ($) {
     my $rv  = 1;
     my $t;
 
-    $t = $obj->property('_status');
+    $t = $obj->get('_status');
     unless ( defined $t and length $t ) {
         $obj->error('missing a valid request method');
         $rv = 0;
     }
 
-    $t = $obj->property('_version');
+    $t = $obj->get('_version');
     unless ( defined $t and length $t ) {
         $obj->error('missing a valid ICAP protocol version');
         $rv = 0;
@@ -210,17 +205,16 @@ sub parse ($$) {
 
     my $obj   = shift;
     my $input = shift;
-    my $i     = defined $input ? $input : 'undef';
     my $rv    = 0;
     my ( $line, $s, $v );
 
-    pdebug( "entering w/$obj, $i", ICAPDEBUG1 );
+    pdebug( 'entering w/%s, %s', ICAPDEBUG1, $obj, $input );
     pIn();
 
     if ( defined $input ) {
 
         # Purge internal state
-        $obj->property( '_status', undef );
+        $obj->set( '_status', undef );
 
         # Parse
         $rv = $obj->SUPER::parse($input);
@@ -228,8 +222,8 @@ sub parse ($$) {
         if ($rv) {
 
             # Extract response specific fields
-            $line = $obj->property('_start');
-            ( $v, $s ) = ( $line =~ /^(\S+)\s+(\d+)/sm );
+            $line = $obj->get('_start');
+            ( $v, $s ) = ( $line =~ /^(\S+)\s+(\d+)/s );
 
             # Save the extracted information
             $rv = $obj->status($s) && $obj->version($v);
@@ -240,7 +234,7 @@ sub parse ($$) {
     }
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -258,7 +252,7 @@ sub generate ($$) {
     if ( $obj->sanityCheck ) {
 
         # Build start line
-        $obj->property( '_start', join ' ', ICAP_VERSION, $obj->status,
+        $obj->set( '_start', join ' ', ICAP_VERSION, $obj->status,
             $obj->statusText );
 
         # Generate ICAP message
@@ -278,7 +272,7 @@ Net::ICAP::Response - ICAP Response Class
 
 =head1 VERSION
 
-$Id: lib/Net/ICAP/Response.pm, v0.03 $
+$Id: lib/Net/ICAP/Response.pm, 0.04 2017/04/12 15:54:19 acorliss Exp $
 
 =head1 SYNOPSIS
 

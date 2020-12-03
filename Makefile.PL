@@ -2,8 +2,8 @@ use ExtUtils::MakeMaker;
 use 5.008003;
 
 %reqMods = (
-    'Class::EHierarchy' => 0.93,
-    'Paranoid'          => 0.36,
+    'Class::EHierarchy' => 2.00,
+    'Paranoid'          => 2.05,
     'URI'               => 0,
     'HTTP::Date'        => 0,
     );

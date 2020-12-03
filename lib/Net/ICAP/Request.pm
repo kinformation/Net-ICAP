@@ -2,7 +2,7 @@
 #
 # (c) 2012, Arthur Corliss <corliss@digitalmages.com>
 #
-# $Revision: 0.03 $
+# $Revision: 0.04 $
 #
 #    This software is licensed under the same terms as Perl, itself.
 #    Please see http://dev.perl.org/licenses/ for more information.
@@ -28,7 +28,7 @@ use Net::ICAP::Message;
 use Paranoid::Debug;
 use URI;
 
-($VERSION) = ( q$Revision: 0.03 $ =~ /(\d+(?:\.(\d+))+)/sm );
+($VERSION) = ( q$Revision: 0.04 $ =~ /(\d+(?:\.(\d+))+)/s );
 
 @ISA = qw(Net::ICAP::Message Class::EHierarchy);
 
@@ -50,7 +50,7 @@ sub _initialize ($;@) {
     my %args = @_;
     my $rv   = 1;
 
-    pdebug( "entering w/$obj and @{[ keys %args ]}", ICAPDEBUG1 );
+    pdebug( 'entering w/%s and %s', ICAPDEBUG1, $obj, keys %args );
     pIn();
 
     # Set internal state if args were passed
@@ -58,7 +58,7 @@ sub _initialize ($;@) {
     $rv = $obj->url( $args{url} ) if exists $args{url} and $rv;
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -84,29 +84,27 @@ sub method ($;$) {
 
     my $obj    = shift;
     my $method = shift;
-    my $m      = defined $method ? $method : 'undef';
-    my ( $r, $rv );
+    my $rv;
 
-    pdebug( "entering w/$m", ICAPDEBUG1 );
+    pdebug( 'entering w/%s', ICAPDEBUG1, $method );
     pIn();
 
     if ( defined $method ) {
 
         # Write mode
-        if ( grep { $_ eq $method } $obj->property('_valid_methods') ) {
-            $rv = $obj->property( '_method', $method );
+        if ( grep { $_ eq $method } $obj->get('_valid_methods') ) {
+            $rv = $obj->set( '_method', $method );
         } else {
             $obj->error("invalid method passed: $method");
             $rv = 0;
         }
 
     } else {
-        $rv = $obj->property('_method');
+        $rv = $obj->get('_method');
     }
 
-    $r = defined $rv ? $rv : 'undef';
     pOut();
-    pdebug( "leaving w/rv: $r", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -120,26 +118,24 @@ sub url ($;$) {
 
     my $obj = shift;
     my $url = shift;
-    my $u   = defined $url ? $url : 'undef';
-    my ( $r, $rv );
+    my $rv;
 
-    pdebug( "entering w/$u", ICAPDEBUG1 );
+    pdebug( 'entering w/%s', ICAPDEBUG1, $url );
     pIn();
 
     if ( defined $url ) {
 
         # Write mode
-        $rv = $obj->property( '_url', $url );
+        $rv = $obj->set( '_url', $url );
 
     } else {
 
         # Read mode
-        $rv = $obj->property('_url');
+        $rv = $obj->get('_url');
     }
 
-    $r = defined $rv ? $rv : 'undef';
     pOut();
-    pdebug( "leaving w/rv: $r", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -151,8 +147,8 @@ sub authority ($) {
     # Usage:    $auth = $obj->authority;
 
     my $obj = shift;
-    my $url = $obj->property('_url');
-    my ( $uri, $r, $rv );
+    my $url = $obj->set('_url');
+    my ( $uri, $rv );
 
     pdebug( 'entering', ICAPDEBUG1 );
     pIn();
@@ -162,9 +158,8 @@ sub authority ($) {
         $rv  = $uri->authority;
     }
 
-    $r = defined $rv ? $rv : 'undef';
     pOut();
-    pdebug( "leaving w/rv: $r", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -176,8 +171,8 @@ sub service ($) {
     # Usage:    $auth = $obj->service;
 
     my $obj = shift;
-    my $url = $obj->property('_url');
-    my ( $uri, $r, $rv );
+    my $url = $obj->get('_url');
+    my ( $uri, $rv );
 
     pdebug( 'entering', ICAPDEBUG1 );
     pIn();
@@ -187,9 +182,8 @@ sub service ($) {
         $rv  = $uri->path;
     }
 
-    $r = defined $rv ? $rv : 'undef';
     pOut();
-    pdebug( "leaving w/rv: $r", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -203,8 +197,8 @@ sub query ($;$) {
 
     my $obj   = shift;
     my $qname = shift;
-    my $url   = $obj->property('_url');
-    my ( $uri, %q, $r, $rv );
+    my $url   = $obj->get('_url');
+    my ( $uri, %q, $rv );
 
     pdebug( 'entering', ICAPDEBUG1 );
     pIn();
@@ -219,9 +213,8 @@ sub query ($;$) {
         }
     }
 
-    $r = defined $rv ? $rv : 'undef';
     pOut();
-    pdebug( "leaving w/rv: $r", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -236,19 +229,19 @@ sub sanityCheck ($) {
     my $rv  = 1;
     my $t;
 
-    $t = $obj->property('_method');
+    $t = $obj->get('_method');
     unless ( defined $t and length $t ) {
         $obj->error('missing a valid request method');
         $rv = 0;
     }
 
-    $t = $obj->property('_url');
+    $t = $obj->get('_url');
     unless ( defined $t and length $t ) {
         $obj->error('missing a valid request URL');
         $rv = 0;
     }
 
-    $t = $obj->property('_version');
+    $t = $obj->get('_version');
     unless ( defined $t and length $t ) {
         $obj->error('missing a valid ICAP protocol version');
         $rv = 0;
@@ -274,18 +267,17 @@ sub parse ($$) {
 
     my $obj   = shift;
     my $input = shift;
-    my $i     = defined $input ? $input : 'undef';
     my $rv    = 0;
     my ( $line, $m, $u, $v );
 
-    pdebug( "entering w/$obj, $i", ICAPDEBUG1 );
+    pdebug( 'entering w/%s, %s', ICAPDEBUG1, $obj, $input );
     pIn();
 
     if ( defined $input ) {
 
         # Purge internal state
-        $obj->property( '_method', undef );
-        $obj->property( '_url',    undef );
+        $obj->set( '_method', undef );
+        $obj->set( '_url',    undef );
 
         # Parse
         $rv = $obj->SUPER::parse($input);
@@ -293,8 +285,8 @@ sub parse ($$) {
         if ($rv) {
 
             # Extract request specific fields
-            $line = $obj->property('_start');
-            ( $m, $u, $v ) = ( $line =~ /^(\S+)\s+(\S+)\s+(\S+)$/sm );
+            $line = $obj->get('_start');
+            ( $m, $u, $v ) = ( $line =~ /^(\S+)\s+(\S+)\s+(\S+)$/s );
 
             # Save the extracted information
             $rv = $obj->method($m) && $obj->url($u) && $obj->version($v);
@@ -307,7 +299,7 @@ sub parse ($$) {
     $rv = 0 unless defined $rv;
 
     pOut();
-    pdebug( "leaving w/rv: $rv", ICAPDEBUG1 );
+    pdebug( 'leaving w/rv: %s', ICAPDEBUG1, $rv );
 
     return $rv;
 }
@@ -325,14 +317,14 @@ sub generate ($$) {
     # Generate Host header from URL
     $url = $obj->url;
     if ( defined $url ) {
-        ($host) = ( $url =~ m#^icap://([^:/]+)#smi );
+        ($host) = ( $url =~ m#^icap://([^:/]+)#si );
         $obj->header( 'Host', $host );
     }
 
     if ( $obj->sanityCheck ) {
 
         # Build start line
-        $obj->property( '_start', join ' ', $obj->method, $obj->url,
+        $obj->set( '_start', join ' ', $obj->method, $obj->url,
             ICAP_VERSION );
         $rv = $obj->SUPER::generate($out);
     }
@@ -350,7 +342,7 @@ Net::ICAP::Request - ICAP Request Class
 
 =head1 VERSION
 
-$Id: lib/Net/ICAP/Request.pm, v0.03 $
+$Id: lib/Net/ICAP/Request.pm, 0.04 2017/04/12 15:54:19 acorliss Exp $
 
 =head1 SYNOPSIS
 
