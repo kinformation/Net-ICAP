@@ -38,15 +38,22 @@ sub cookie_monster {
     return $response;
 }
 
+sub my_istag_generator {
+    my ($mday, $mon, $year) = (localtime(time))[3..5];
+
+    $year += 1900;
+    $mon  += 1;
+    return "\"ICAP-$year-$mon-$mday\"";
+}
+
 sub my_logger {
     my $client   = shift;
     my $request  = shift;
     my $response = shift;
-    my ( $line, $header, $url, %headers );
+    my ( $line, $url );
 
     # Assemble the URL from the HTTP header
-    $header = $request->reqhdr;
-    ($url)  = ($header =~ /^\S+\s+(\S+)/smi);
+    $url = $request->url;
 
     # Create the log line
     $line = sprintf( "%s %s: %s %s %s\n",
@@ -66,6 +73,7 @@ my $server = Net::ICAP::Server->new(
         },
     reqmod  => \&cookie_monster,
     respmod => \&cookie_monster,
+    istag   => \&my_istag_generator,
     logger => \&my_logger,
     );
 

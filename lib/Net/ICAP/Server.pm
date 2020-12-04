@@ -46,6 +46,7 @@ use Paranoid::Process qw(:all);
     [ CEH_RESTR | CEH_CODE,   '_reqmod' ],
     [ CEH_RESTR | CEH_CODE,   '_respmod' ],
     [ CEH_RESTR | CEH_CODE,   '_logger' ],
+    [ CEH_RESTR | CEH_CODE,   '_istag' ],
     );
 @_methods = ();
 
